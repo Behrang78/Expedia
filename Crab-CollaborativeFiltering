@@ -1,0 +1,95 @@
+# author:Mohsen-shahriari
+
+import datetime
+from heapq import nlargest
+from operator import itemgetter
+from collections import defaultdict
+from scikits.crab.models import MatrixPreferenceDataModel
+from scikits.crab.metrics import pearson_correlation
+from scikits.crab.similarities import UserSimilarity
+from scikits.crab.recommenders.knn import UserBasedRecommender
+
+train_file = "/Users/shahriari/Downloads/train.csv"
+test_file  = "/Users/shahriari/Downloads/test.csv"
+sample_file="/Users/shahriari/Downloads/sample_submission.csv"
+output_path = "/Users/shahriari/Downloads/"
+ 
+def Expedia_Competition():
+     '''Making the rating matrix for traing dataset. Each user rated on the hotel
+based on the clicking or booking. The other words, the rating are considered to be
+eighter clicking and booking data!'''
+     print('Making the train dataset...')
+     f = open(train_file, "r")
+     f.readline()
+     total = 0
+     Expedia_Train_set = {}
+     while 1:
+        line = f.readline().strip()
+        total += 1
+
+        if total % 10000000 == 0:
+            print('Read {} lines...'.format(total))
+
+        if line == '':
+            break
+
+        arr = line.split(",")
+        user_ID=arr[7]
+        is_booking = int(arr[18])
+        hotel_cluster = arr[23]
+        append_1 = 3 + 17*is_booking
+        Expedia_Train_set.setdefault(user_ID,{})
+        Expedia_Train_set[user_ID][hotel_cluster] = float(append_1)   
+     f.close()
+     '''Making the recommendation model based on user-based collaborating filtering'''
+     print 'The Traing user-hotel rating matrix is constituted'
+     model=MatrixPreferenceDataModel(Expedia_Train_set)
+     similarity=UserSimilarity(model,pearson_correlation)
+     recommender=UserBasedRecommender(model, similarity, with_preference=True)
+
+     now = datetime.datetime.now()
+     path = output_path + 'submission_' + str(now.strftime("%Y-%m-%d-%H-%M")) + '.csv'
+     out = open(path, "w")
+     f = open(test_file, "r")
+     Expedia_Test_set = {}
+     total = 0
+     out.write("id,hotel_cluster\n")
+     print('Start computing the output CSV file!')
+     '''Iterating through the test data to generate; For each user_id in the test
+data, 5 items are written to the CSV file'''
+     while 1:
+        line = f.readline().strip()
+        total += 1
+
+        if total % 10000 == 0:
+            print('Read {} lines...'.format(total))
+
+        if line == '':
+            break
+
+        arr = line.split(",")
+        test_ID=arr[8]
+        out.write(str(test_ID) + ',')
+        hotelClusters=recommender.recommend(test_ID,5)
+        
+        if hotelClusters[0][0]!=0:
+             out.write('' + hotelClusters[0][0])
+        if hotelClusters[1][0]!=0:
+             out.write('' + hotelClusters[1][0])
+        if hotelClusters[2][0]!=0:
+             out.write('' + hotelClusters[2][0])
+
+        if hotelClusters[3][0]!=0:
+             out.write('' + hotelClusters[3][0])
+
+        if hotelClusters[4][0]!=0:
+             out.write('' + hotelClusters[4][0])
+  
+
+        out.write("\n")
+     out.close()   
+     f.close()
+     #print Expedia_Test_set'''
+     
+
+Expedia_Competition()      
