@@ -19,7 +19,7 @@ def Expedia_Competition():
      UserCity=train_data[['user_location_city','user_id']]
      """Converting the data fram UserCity to a dictionary that user_city_location is the ids
      and the user_ids are the values"""
-     location_user_dict=UserCity.groupby('user_location_city')['user_id'].apply(list).to_dict()
+     location_user_dict=UserCity.groupby('user_location_city')['user_id'].apply(set).to_dict()
      """UserCityDict---> the keys are user_id and the values are user_location_city"""
      user_city_dict=UserCity.set_index('user_id')['user_location_city'].to_dict()
      """Computing the ordered set of users"""
@@ -39,21 +39,23 @@ def Expedia_Competition():
      print('Start User-based Collaborative Filterting')
 
      for i in range(len(user_location_rating)):
-          User_Item_Rating.setdefault(user_location_rating[i,0],{})
-          User_Item_Rating[user_location_rating[i,0]][user_location_rating[i,1]]=user_location_rating[i,2]*user_location_rating[i,3]
-          Item_User_Rating.setdefault(user_location_rating[i,1],{})
-          Item_User_Rating[user_location_rating[i,1]][user_location_rating[i,0]]=user_location_rating[i,2]*user_location_rating[i,3]
+          if user_location_rating[i,2]==1:
+               User_Item_Rating.setdefault(user_location_rating[i,0],{})
+               User_Item_Rating[user_location_rating[i,0]][user_location_rating[i,1]]=user_location_rating[i,3]
+               Item_User_Rating.setdefault(user_location_rating[i,1],{})
+               Item_User_Rating[user_location_rating[i,1]][user_location_rating[i,0]]=user_location_rating[i,3]
      
      
-#     UserDictionary=dict(enumerate(SortedUserSet))
-#     UserDictionaryReverse=dict(map(reversed, UserDictionary.items()))
-#     ItemDictionary=dict(enumerate(SortedLocationList))
-#     ItemDictionaryReverse=dict(map(reversed, ItemDictionary.items()))
-#     myarray = np.zeros((np.max(SortedUserSet), np.max(SortedLocationList)))
-#     print('Start Making the matrix')
-#     for key1, row in User_Item_Rating.iteritems():
-#          for key2, value in row.iteritems():
- #              myarray[UserDictionaryReverse.get(key1), ItemDictionaryReverse.get(key2)] = value
+     UserDictionary=dict(enumerate(SortedUserSet))
+     UserDictionaryReverse=dict(map(reversed, UserDictionary.items()))
+     ItemDictionary=dict(enumerate(SortedLocationList))
+     ItemDictionaryReverse=dict(map(reversed, ItemDictionary.items()))
+ #    myarray = np.zeros((np.max(SortedUserSet), np.max(SortedLocationList)))
+     myarray = np.zeros((len(SortedUserSet), len(SortedLocationList)))
+     print('Start Making the matrix')
+     for key1, row in User_Item_Rating.iteritems():
+          for key2, value in row.iteritems():
+               myarray[UserDictionaryReverse.get(key1), ItemDictionaryReverse.get(key2)] = value
      
                         
 
@@ -69,25 +71,26 @@ def Expedia_Competition():
           
      
           for item in SortedLocationList:
-               Same_Location_Users=location_user_dict[cityID]
+ #              Same_Location_Users=location_user_dict[cityID]
                total1=0
                total2=0
                
-
-               if User_Item_Rating[user].get(item):
-                    continue
-               for EachUser in Same_Location_Users:
-                    dict1=User_Item_Rating[user]
-                    dict2=User_Item_Rating[EachUser]
+               
+               if User_Item_Rating.get(user):
+                    if User_Item_Rating[user].get(item):
+                         continue
+               for EachUser in SortedUserSet:
+ #                   dict1=User_Item_Rating[user]
+#                    dict2=User_Item_Rating[EachUser]
                     '''Pearson computation of two dictionary values with different keys'''
- #                   FirstUser=UserDictionaryReverse[user]
-#                    SecondUser=UserDictionaryReverse[user]
-#                    v1=myarray[user,:]
-#                    v2=myarray[EachUser,:]
-#                    weight=np.dot(v1, v2) / (np.sqrt(np.dot(v1, v1)) * np.sqrt(np.dot(v2, v2)))
+                    FirstUser=UserDictionaryReverse[user]
+                    SecondUser=UserDictionaryReverse[EachUser]
+                    v1=myarray[FirstUser,:]
+                    v2=myarray[SecondUser,:]
+                    weight=np.dot(v1, v2) / (np.sqrt(np.dot(v1, v1)) * np.sqrt(np.dot(v2, v2)))
                     
-                    keys = list(dict1.viewkeys() | dict2.viewkeys())
-                    weight=np.corrcoef([dict1.get(x, 0) for x in keys],[dict2.get(x, 0) for x in keys])[0, 1]
+ #                   keys = list(dict1.viewkeys() | dict2.viewkeys())
+#                    weight=np.corrcoef([dict1.get(x, 0) for x in keys],[dict2.get(x, 0) for x in keys])[0, 1]
 
 
                     if(User_Item_Rating.get(EachUser) is None):
@@ -99,7 +102,7 @@ def Expedia_Competition():
                     else:
                          total1=total1+(weight*User_Item_Rating.get(EachUser).get(item))
                          total2=total2+weight
-               if total2:
+               if total2>0:
                     average=float(total1)/total2
                     User_Item_Rating.setdefault(user,{})
                     User_Item_Rating[user][item]=math.floor(average)
@@ -112,7 +115,7 @@ def Expedia_Competition():
                     Item_User_Rating.setdefault(item,{})
                     Item_User_Rating[item][user]=math.floor(average)
                                        
-                     
+                    
      test_data=pd.read_csv(test_file)
      ItemIDs=test_data['srch_destination_id'].tolist()
      TestItemSet=set(ItemIDs)
@@ -125,7 +128,8 @@ def Expedia_Competition():
      out=open(path,"w")
      out.write("id, hotel_cluster\n")
      for temp in ItemIDs:
-          Temporary_Hotel_Clusters=Item_User_Rating.get(item).values()
+          if Item_User_Rating.get(item):
+               Temporary_Hotel_Clusters=Item_User_Rating.get(item).values()
           Top5=nlargest(5,enumerate(Temporary_Hotel_Clusters),itemgetter(1))
           Top_5=dict(Top5).values()
           out.write(str(temp) + ',')
